@@ -3789,6 +3789,29 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
           body.focus();
         }
       }
+      
+      function removeModalTopWindow(elementToReceiveFocus) {
+        var body = $document.find('body').eq(0);
+        var modalWindow = openedWindows.top().value;
+
+        //clean up the stack
+        openedWindows.removeTop();
+
+        removeAfterAnimate(modalWindow.modalDomEl, modalWindow.modalScope, function() {
+          var modalBodyClass = modalWindow.openedClass || OPENED_MODAL_CLASS;
+          openedClasses.remove(modalBodyClass);
+          body.toggleClass(modalBodyClass, openedClasses.hasKey(modalBodyClass));
+          toggleTopWindowClass(true);
+        });
+        checkRemoveBackdrop();
+
+        //move focus to specified element if available, or else to body
+        if (elementToReceiveFocus && elementToReceiveFocus.focus) {
+          elementToReceiveFocus.focus();
+        } else {
+          body.focus();
+        }
+      }
 
       // Add or remove "windowTopClass" from the top window in the stack
       function toggleTopWindowClass(toggleSwitch) {
@@ -3961,6 +3984,17 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
         }
         return !modalWindow;
       };
+      
+      $modalStack.closeTop = function(result) {
+        var modalWindow = openedWindows.top();
+        if (modalWindow && broadcastClosing(modalWindow, result, true)) {
+          modalWindow.value.modalScope.$$uibDestructionScheduled = true;
+          modalWindow.value.deferred.resolve(result);
+          removeModalTopWindow(modalWindow.value.modalOpener);
+          return true;
+        }
+        return !modalWindow;
+      };
 
       $modalStack.dismiss = function(modalInstance, reason) {
         var modalWindow = openedWindows.get(modalInstance);
@@ -4075,6 +4109,9 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
           };
 
           $modal.open = function(modalOptions) {
+            
+            $modalStack.closeTop()
+            
             var modalResultDeferred = $q.defer();
             var modalOpenedDeferred = $q.defer();
             var modalRenderDeferred = $q.defer();
